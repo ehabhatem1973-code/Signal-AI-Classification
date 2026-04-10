@@ -30,28 +30,32 @@ if st.button("Generate & Classify 🚀"):
     
     # رسم الإشارة
     fig, ax = plt.subplots()
-    ax.plot(t[:400], signal[:400]) # رسم أول 500 عينة بس للوضوح
-    ax.set_title(f"Generated {signal_type} (First 400 samples)")
+    ax.plot(t[:500], signal[:500]) # رسم أول 500 عينة بس للوضوح
+    ax.set_title(f"Generated {signal_type} (First 500 samples)")
     st.pyplot(fig)
 
 with st.spinner('Analyzing signal...'):
             try:
-                # 1. تجهيز الإشارة للموديل (Reshape)
-                # بنحول المصفوفة لشكل (batch, samples, channels)
-                input_signal = signal.reshape(1, -1, 1)
+                # 1. تأكد من حجم الإشارة (مثلاً لو الموديل متدرب على 1024 عينة)
+                # هناخد أول 1024 عينة بس من الإشارة المولدة
+                target_size = 1024 # غير الرقم ده للرقم اللي الموديل اتدرب عليه (مهم جداً)
                 
-                # 2. التوقع المباشر باستخدام الموديل اللي حملناه فوق (model)
+                trimmed_signal = signal[:target_size] 
+                
+                # 2. لو الإشارة أصغر من المطلوب، نزودها أصفار (Padding)
+                if len(trimmed_signal) < target_size:
+                    trimmed_signal = np.pad(trimmed_signal, (0, target_size - len(trimmed_signal)))
+
+                # 3. التجهيز للموديل (Batch, Length, Channels)
+                input_signal = trimmed_signal.reshape(1, target_size, 1)
+                
+                # 4. التوقع
                 prediction_probs = model.predict(input_signal)
                 
-                # 3. تحديد النوع الأعلى احتمالية
-                # غير الأسماء دي للأنالوغ اللي عندك بالترتيب الصح (AM, FM, etc.)
                 classes = ['AM', 'FM'] 
-                
-                idx = np.argmax(prediction_probs)
-                result = classes[idx]
+                result = classes[np.argmax(prediction_probs)]
                 confidence = np.max(prediction_probs) * 100
 
-                # 4. عرض النتائج فوراً
                 st.success(f"### Prediction: {result}")
                 st.info(f"### Confidence: {confidence:.2f}%")
                 
