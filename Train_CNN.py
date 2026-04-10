@@ -62,7 +62,7 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 
 # 4. التدريب (دلوقتي X_train بقت معرفة)
 print("Training started... 🔥")
-model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
+model.fit(X_train, y_train, epochs=50, validation_data=(X_test, y_test))
 model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 # 4. التدريب (The Big Moment)

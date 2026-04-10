@@ -30,8 +30,8 @@ if st.button("Generate & Classify 🚀"):
     
     # رسم الإشارة
     fig, ax = plt.subplots()
-    ax.plot(t[:500], signal[:500]) # رسم أول 500 عينة بس للوضوح
-    ax.set_title(f"Generated {signal_type} (First 500 samples)")
+    ax.plot(t[:400], signal[:400]) # رسم أول 500 عينة بس للوضوح
+    ax.set_title(f"Generated {signal_type} (First 400 samples)")
     st.pyplot(fig)
 
 with st.spinner('Analyzing signal...'):
