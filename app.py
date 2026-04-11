@@ -9,7 +9,7 @@ import pandas as pd
 from datetime import datetime
 
 # --- 1. إعداد الاتصال بـ Google Sheets ---
-# تأكد من وضع رابط الشيت في الـ Secrets كما في الصورة
+# تأكد من وضع [connections.gsheets] في الـ Secrets كما فعلنا
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_users():
@@ -31,6 +31,7 @@ except Exception as e:
     st.error("Connection Error: Check your Google Sheet Secrets!")
     credentials = {"usernames": {}}
 
+# تهيئة الـ Authenticator
 authenticator = stauth.Authenticate(
     credentials,
     "radar_dashboard",
@@ -44,32 +45,36 @@ login_placeholder = st.empty()
 # إذا لم يكن المستخدم مسجلاً دخوله بعد
 if not st.session_state.get('authentication_status'):
     with login_placeholder.container():
-        # نموذج التسجيل (Sign Up)
+        # --- نموذج التسجيل المعدل لتجنب الأخطاء ---
         try:
-            # استخدام 'main' لظهورها في منتصف الصفحة
             if authenticator.register_user(location='main'):
-                all_users = st.session_state['config']['credentials']['usernames']
+                # بدلاً من استخدام ['config']، هنستخدم البيانات المتاحة في الـ session_state مباشرة
+                if 'credentials' in st.session_state:
+                    all_users = st.session_state['credentials']['usernames']
+                else:
+                    # حل احتياطي: استخدام القائمة الحالية المضافة إليها اليوزر الجديد
+                    all_users = credentials['usernames']
                 
                 # تحويل البيانات لـ DataFrame ورفعها للشيت
                 new_df = pd.DataFrame.from_dict(all_users, orient='index').reset_index()
                 new_df.columns = ['User Name', 'Name', 'Password']
+                
+                # رفع البيانات للجوجل شيت (تأكد أن الصلاحية Editor)
                 conn.update(data=new_df)
                 
-                # --- حركة الدخول التلقائي بعد التسجيل ---
-                new_username = list(all_users.keys())[-1]
-                st.session_state['authentication_status'] = True
-                st.session_state['username'] = new_username
-                st.session_state['name'] = all_users[new_username]['name']
-                
-                st.success('Registration successful! Redirecting...')
-                st.rerun() # إعادة تحميل لفتح صفحة الرادار فوراً
+                st.success('Registration successful! Please login now.')
+                st.rerun() 
         except Exception as e:
-            st.error(f"Sign-up Error: {e}")
+            # معالجة خطأ الـ config المشهور في المكتبة
+            if "config" in str(e):
+                st.info("System is initializing context... Please wait or refresh.")
+            else:
+                st.error(f"Sign-up Error: {e}")
         
         # نموذج الدخول التقليدي
         result = authenticator.login(location='main')
 
-# فك تشفير النتيجة للنسخة 0.4.2
+# فك تشفير حالة الدخول
 if isinstance(st.session_state.get('authentication_status'), bool):
     authentication_status = st.session_state['authentication_status']
     name = st.session_state.get('name')
@@ -77,23 +82,18 @@ if isinstance(st.session_state.get('authentication_status'), bool):
 else:
     authentication_status = None
 
-# --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول أو التسجيل) ---
+# --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول) ---
 if authentication_status:
     login_placeholder.empty() # مسح شاشة الدخول تماماً
     
-    # واجهة الخروج في الجنب
+    # واجهة الخروج والترحيب
     authenticator.logout('Logout', 'sidebar')
     st.sidebar.success(f'Welcome Engineer *{name}*')
-
-    # تسجيل الدخول في ملف Log محلي
-    with open("logins.txt", "a") as f:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        f.write(f"User: {name} ({username}) | Login Time: {now}\n")
 
     # محتوى الصفحة الرئيسي
     st.title("📡 Radar Signal Intelligence")
     st.markdown("---")
-    st.write("Secure Cloud Access: **Granted**")
+    st.write("Current Status: **Secure Cloud Access Granted**")
 
     # دالة الـ Spectrogram
     def get_spec(signal):
@@ -101,7 +101,7 @@ if authentication_status:
         Sxx_log = 10 * np.log10(Sxx + 1e-10)
         return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min())
 
-    # تحميل الموديل الذكي
+    # تحميل الموديل (Caching لتحسين السرعة)
     @st.cache_resource
     def load_my_model():
         return tf.keras.models.load_model('signal_cnn_model.h5')
@@ -123,7 +123,7 @@ if authentication_status:
         st.subheader("1. Time Domain Representation")
         fig1, ax1 = plt.subplots(figsize=(10, 3))
         ax1.plot(t[:500], signal[:500], color='dodgerblue')
-        ax1.set_title(f"Time Domain: {signal_option}")
+        ax1.set_title(f"Waveform: {signal_option}")
         st.pyplot(fig1)
 
         with st.spinner('AI analyzing signal fingerprint...'):
@@ -135,22 +135,19 @@ if authentication_status:
                 res = classes[np.argmax(prediction)]
                 conf = np.max(prediction) * 100
 
-                # 2. رسم الـ Spectrogram
-                st.subheader("2. Spectrogram (Signal Fingerprint)")
-                fig2, ax2 = plt.subplots(figsize=(10, 4))
-                ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
-                ax2.set_ylabel("Frequency")
-                ax2.set_xlabel("Time")
-                st.pyplot(fig2)
-
-
-                # 3. عرض نتائج التحليل
-                st.subheader("3. Intelligence Analysis")
+                # 2. عرض نتائج التحليل
+                st.subheader("2. Intelligence Analysis")
                 c1, c2 = st.columns(2)
                 c1.metric("Predicted Class", res)
                 c2.metric("Confidence Level", f"{conf:.2f}%")
 
-                
+                # 3. رسم الـ Spectrogram
+                st.subheader("3. Spectrogram (Signal Fingerprint)")
+                fig2, ax2 = plt.subplots(figsize=(10, 4))
+                ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
+                ax2.set_ylabel("Frequency Bin")
+                ax2.set_xlabel("Time Bin")
+                st.pyplot(fig2)
 
             except Exception as e:
                 st.error(f"Analysis Error: {e}")
