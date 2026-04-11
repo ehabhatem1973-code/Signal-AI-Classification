@@ -13,7 +13,11 @@ passwords = ["123", "456"]
 
 # تشفير الباسوردات
 # السطر 15: الطريقة الجديدة لتشفير القائمة كلها مرة واحدة
-hashed_passwords = stauth.Hasher(passwords).generate() 
+# السطر 15 و 16: الطريقة الصحيحة للنسخة 0.4.2
+# بنسيبه فاضي هنا
+hasher = stauth.Hasher() 
+# وبنبعت القائمة جوه الـ generate)
+hashed_passwords = hasher.generate(passwords)  
 
 # السطر 18: تعديل بسيط في شكل البيانات عشان يتناسب مع نسخة 0.4.2
 credentials = {
