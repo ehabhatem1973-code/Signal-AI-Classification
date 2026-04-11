@@ -1,63 +1,58 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import tensorflow as tf 
+import tensorflow as tf
+from scipy.signal import spectrogram # ضفنا دي عشان نحول الإشارة لصورة
 
-# تحميل الموديل مرة واحدة في أول تشغيل البرنامج
+# 1. دالة الـ Spectrogram (لازم تكون نسخة طبق الأصل من كود التدريب)
+def get_spec(signal):
+    _, _, Sxx = spectrogram(signal, fs=5000, nperseg=256, noverlap=128)
+    Sxx_log = 10 * np.log10(Sxx + 1e-10)
+    # عمل Normalization (مهم جداً عشان الموديل يفهم الأرقام)
+    return (Sxx_log - Sxx_log.min()) / (Sxx_log.max() - Sxx_log.min())
+
+# تحميل الموديل
 @st.cache_resource
 def load_my_model():
     return tf.keras.models.load_model('signal_cnn_model.h5')
 
 model = load_my_model()
 
-st.set_page_config(page_title="Signal Intelligence Radar", page_icon="📡")
+st.title("📡 Radar Signal Intelligence")
 
-st.title("📡 Signal Classification Radar")
-st.write("Welcome, Engineer! Upload or Generate a signal to classify it using AI.")
-
-# 1. قائمة اختيار نوع الإشارة
-signal_type = st.selectbox("Select Signal Type to Generate:", ["AM Signal", "FM Signal"])
+# ... (كود توليد الإشارة اللي عندك زي ما هو) ...
 
 if st.button("Generate & Classify 🚀"):
-    # توليد إشارة حقيقية (5000 عينة)
+    # (كود توليد الـ signal هنا)
     fs = 5000
     t = np.linspace(0, 1, fs, endpoint=False)
-    
     if signal_type == "AM Signal":
         signal = (1 + 0.5 * np.sin(2 * np.pi * 5 * t)) * np.sin(2 * np.pi * 100 * t)
     else:
         signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
-    
-    # رسم الإشارة
-    fig, ax = plt.subplots()
-    ax.plot(t[:500], signal[:500]) 
-    ax.set_title(f"Generated {signal_type} (First 500 samples)")
-    st.pyplot(fig)
 
-    # --- الجزء ده لازم يكون جوه الـ if بتاعة الزرار وتحت توليد الـ signal مباشرة ---
-    with st.spinner('Analyzing signal...'):
+    with st.spinner('Converting signal to Spectrogram and Analyzing...'):
         try:
-            # 1. الحجم المستهدف (الرقم اللي الموديل مستنيه)
-            target_size = 15360 
+            # الخطوة السحرية: تحويل الإشارة لـ Spectrogram بنفس مقاس التدريب
+            spec = get_spec(signal) 
             
-            # 2. معالجة الإشارة لتناسب الحجم
-            if len(signal) > target_size:
-                processed_signal = signal[:target_size]
-            else:
-                processed_signal = np.pad(signal, (0, target_size - len(signal)))
-
-            # 3. التعديل الجوهري للأبعاد (Reshape)
-            input_data = processed_signal.reshape(1, 120, 128, 1)
+            # التأكد من الأبعاد (1, 129, 38, 1)
+            input_data = spec.reshape(1, 129, 38, 1)
             
-            # 4. التوقع
+            # التوقع
             prediction = model.predict(input_data)
-            
-            classes = ['AM', 'FM'] 
+            classes = ['AM', 'FM']
             res = classes[np.argmax(prediction)]
             conf = np.max(prediction) * 100
 
             st.success(f"### Prediction: {res}")
             st.info(f"### Confidence: {conf:.2f}%")
+            
+            # رسم الـ Spectrogram عشان الشغل يبقى احترافي
+            fig, ax = plt.subplots()
+            ax.imshow(spec, aspect='auto', origin='lower')
+            ax.set_title("Spectrogram used for Prediction")
+            st.pyplot(fig)
 
         except Exception as e:
             st.error(f"Error logic: {e}")
