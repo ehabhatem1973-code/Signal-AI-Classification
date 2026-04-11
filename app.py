@@ -2,7 +2,8 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from scipy.signal import spectrogram # ضفنا دي عشان نحول الإشارة لصورة
+from scipy.signal import spectrogram 
+# ضفنا دي عشان نحول الإشارة لصورة
 
 # 1. دالة الـ Spectrogram (لازم تكون نسخة طبق الأصل من كود التدريب)
 def get_spec(signal):
