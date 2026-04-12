@@ -66,48 +66,51 @@ if not st.session_state.get('authentication_status'):
     
     with tab2:
         try:
-            # 1. عرض فورم التسجيل
-            # لاحظ: شيلنا الـ logic القديم اللي كان بره وحطيناه جوه شرط نجاح التسجيل
-            email_of_registered_user, username_of_registered_user, name_of_registered_user = authenticator.register_user(location='main')
+            # استخدام الطريقة التقليدية لضمان التوافق مع كل النسخ
+            # ده بيحل مشكلة "cannot unpack non-iterable"
+            registration_result = authenticator.register_user(location='main')
             
-            # 2. إذا نجح التسجيل (المستخدم ضغط زرار Register والبيانات سليمة)
-            if username_of_registered_user:
-                with st.spinner('Syncing with Cloud...'):
-                    # سحب البيانات اللي اتكتبت في الفورم حالاً
-                    new_user_data = credentials["usernames"][username_of_registered_user]
-                    
-                    new_entry = pd.DataFrame([{
-                        'Name': name_of_registered_user,
-                        'Last name': 'Engineer',
-                        'Email': email_of_registered_user,
-                        'Username': username_of_registered_user,
-                        'Password': new_user_data['password'], # الباسورد الـ hashed
-                        'Captcha': 'Verified',
-                        'Password hint': 'Radar Project'
-                    }])
+            # في النسخ القديمة، النتيجة بتكون True لو التسجيل نجح
+            if registration_result:
+                with st.spinner('Saving to Google Sheets...'):
+                    # هنجيب آخر يوزر اتسجل في القائمة المحلية حالاً
+                    usernames = list(credentials["usernames"].keys())
+                    if usernames:
+                        new_username = usernames[-1]
+                        user_info = credentials["usernames"][new_username]
 
-                    # رفع البيانات للسحابة (مرة واحدة فقط)
-                    existing_df = conn.read(spreadsheet=url_sheet, ttl=0)
-                    updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
-                    conn.update(spreadsheet=url_sheet, data=updated_df)
-                    
-                    st.success('✅ Registered successfully! Please switch to "Login" tab to enter.')
-                    st.balloons()
-                    
+                        # تجهيز الداتا ببيانات حقيقية
+                        new_entry = pd.DataFrame([{
+                            'Name': user_info.get('name', 'Eng. User'),
+                            'Last name': 'Engineer',
+                            'Email': user_info.get('email', 'N/A'),
+                            'Username': new_username,
+                            'Password': user_info.get('password', ''), # الباسورد الـ hashed
+                            'Captcha': 'Verified',
+                            'Password hint': 'Radar Project'
+                        }])
+
+                        # الرفع للجوجل شيت (مرة واحدة فقط هنا)
+                        existing_df = conn.read(spreadsheet=url_sheet, ttl=0)
+                        updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
+                        conn.update(spreadsheet=url_sheet, data=updated_df)
+                        
+                        st.success('✅ Registered! Now go to "Login" tab.')
+                        st.balloons()
         except Exception as e:
-            st.error(f"Error during registration: {e}")
+            st.error(f"Registration Error: {e}")
 
     with tab1:
-        # تسجيل الدخول
-        name, authentication_status, username = authenticator.login(location='main')
+        # حل مشكلة الـ TypeError هنا عن طريق مناداة الدالة بدون Unpacking
+        authenticator.login(location='main')
         
-        if st.session_state["authentication_status"]:
-            st.rerun() # إعادة تشغيل عشان يدخله فوراً على صفحة الرادار
-        elif st.session_state["authentication_status"] is False:
+        # التأكد من الحالة من الـ session_state مباشرة
+        if st.session_state.get("authentication_status"):
+            st.rerun() 
+        elif st.session_state.get("authentication_status") is False:
             st.error('Username/password is incorrect')
-        elif st.session_state["authentication_status"] is None:
-            st.info('Please enter your credentials')
 
+            
 # --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول) ---
 if st.session_state.get('authentication_status'):
     authenticator.logout('Logout', 'sidebar')
