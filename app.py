@@ -60,46 +60,53 @@ authenticator = stauth.Authenticate(
 if not st.session_state.get('authentication_status'):
     tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
     
+  # --- 2. واجهة الدخول والتسجيل ---
+if not st.session_state.get('authentication_status'):
+    tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
+    
     with tab2:
         try:
-            # عملية التسجيل
-            result = authenticator.register_user(location='main')
+            # 1. عرض فورم التسجيل
+            # لاحظ: شيلنا الـ logic القديم اللي كان بره وحطيناه جوه شرط نجاح التسجيل
+            email_of_registered_user, username_of_registered_user, name_of_registered_user = authenticator.register_user(location='main')
             
-            if result:
-                # التأكد من تحديث القائمة المحلية
-                usernames_list = list(credentials["usernames"].keys())
-                if usernames_list:
-                    new_username = usernames_list[-1]
-                    user_info = credentials["usernames"][new_username]
-
-                    # تجهيز البيانات للإرسال للسحابة
+            # 2. إذا نجح التسجيل (المستخدم ضغط زرار Register والبيانات سليمة)
+            if username_of_registered_user:
+                with st.spinner('Syncing with Cloud...'):
+                    # سحب البيانات اللي اتكتبت في الفورم حالاً
+                    new_user_data = credentials["usernames"][username_of_registered_user]
+                    
                     new_entry = pd.DataFrame([{
-                        'Name': user_info.get('name', 'N/A'),
+                        'Name': name_of_registered_user,
                         'Last name': 'Engineer',
-                        'Email': user_info.get('email', 'N/A'),
-                        'Username': new_username,
-                        'Password': user_info.get('password', ''),
-                        'Password confirmation': user_info.get('password', ''),
-                        'Password hint': 'Radar Project',
-                        'Captcha': 'Verified'
+                        'Email': email_of_registered_user,
+                        'Username': username_of_registered_user,
+                        'Password': new_user_data['password'], # الباسورد الـ hashed
+                        'Captcha': 'Verified',
+                        'Password hint': 'Radar Project'
                     }])
 
-                    # رفع البيانات للجوجل شيت مع تمرير الرابط
+                    # رفع البيانات للسحابة (مرة واحدة فقط)
                     existing_df = conn.read(spreadsheet=url_sheet, ttl=0)
                     updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
                     conn.update(spreadsheet=url_sheet, data=updated_df)
                     
-                    st.success('✅ Engineer Registered & Cloud Synced!')
+                    st.success('✅ Registered successfully! Please switch to "Login" tab to enter.')
                     st.balloons()
+                    
         except Exception as e:
             st.error(f"Error during registration: {e}")
 
     with tab1:
-        authenticator.login(location='main')
-        if st.session_state.get('authentication_status') is False:
+        # تسجيل الدخول
+        name, authentication_status, username = authenticator.login(location='main')
+        
+        if st.session_state["authentication_status"]:
+            st.rerun() # إعادة تشغيل عشان يدخله فوراً على صفحة الرادار
+        elif st.session_state["authentication_status"] is False:
             st.error('Username/password is incorrect')
-        elif st.session_state.get('authentication_status') is None:
-            st.info('Please enter your credentials to access the Radar System')
+        elif st.session_state["authentication_status"] is None:
+            st.info('Please enter your credentials')
 
 # --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول) ---
 if st.session_state.get('authentication_status'):
@@ -162,4 +169,3 @@ if st.session_state.get('authentication_status'):
                 c1.metric("Detected Modulation", res_label)
                 c2.metric("Confidence Score", f"{confidence:.2f}%")
 
-                
