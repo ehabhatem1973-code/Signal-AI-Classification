@@ -56,60 +56,62 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-# --- 2. واجهة الدخول والتسجيل ---
-if not st.session_state.get('authentication_status'):
-    tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
-    
-  # --- 2. واجهة الدخول والتسجيل ---
+
+
+
+ # --- 2. واجهة الدخول والتسجيل ---
 if not st.session_state.get('authentication_status'):
     tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
     
     with tab2:
         try:
-            # استخدام الطريقة التقليدية لضمان التوافق مع كل النسخ
-            # ده بيحل مشكلة "cannot unpack non-iterable"
+            # دالة التسجيل
             registration_result = authenticator.register_user(location='main')
             
-            # في النسخ القديمة، النتيجة بتكون True لو التسجيل نجح
+            # التأكد إن فيه يوزر جديد اتسجل (الشرط ده بيتحقق مرة واحدة بس عند الضغط)
             if registration_result:
-                with st.spinner('Saving to Google Sheets...'):
-                    # هنجيب آخر يوزر اتسجل في القائمة المحلية حالاً
-                    usernames = list(credentials["usernames"].keys())
-                    if usernames:
-                        new_username = usernames[-1]
-                        user_info = credentials["usernames"][new_username]
+                # 1. هنجيب بيانات آخر يوزر دخل القائمة
+                usernames = list(credentials["usernames"].keys())
+                new_username = usernames[-1]
+                user_info = credentials["usernames"][new_username]
 
-                        # تجهيز الداتا ببيانات حقيقية
+                # 2. التأكد إننا مسجلناش اليوزر ده "في نفس الجلسة" قبل كدة
+                if st.session_state.get('last_registered') != new_username:
+                    with st.spinner('Cloud Syncing...'):
                         new_entry = pd.DataFrame([{
                             'Name': user_info.get('name', 'Eng. User'),
                             'Last name': 'Engineer',
                             'Email': user_info.get('email', 'N/A'),
                             'Username': new_username,
-                            'Password': user_info.get('password', ''), # الباسورد الـ hashed
+                            'Password': user_info.get('password', ''),
                             'Captcha': 'Verified',
                             'Password hint': 'Radar Project'
                         }])
 
-                        # الرفع للجوجل شيت (مرة واحدة فقط هنا)
+                        # رفع البيانات (مرة واحدة فقط)
                         existing_df = conn.read(spreadsheet=url_sheet, ttl=0)
                         updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
                         conn.update(spreadsheet=url_sheet, data=updated_df)
                         
-                        st.success('✅ Registered! Now go to "Login" tab.')
+                        # تخزين اسم اليوزر عشان نمنع التكرار في المرات القادمة
+                        st.session_state['last_registered'] = new_username
+                        
+                        st.success('✅ Registration Successful! Please switch to Login tab.')
                         st.balloons()
+                        # اختياري: لو عايزه يروح للـ Login فوراً، ممكن تسيبها للمستخدم أو تستخدم rerun
+                        
         except Exception as e:
             st.error(f"Registration Error: {e}")
 
     with tab1:
-        # حل مشكلة الـ TypeError هنا عن طريق مناداة الدالة بدون Unpacking
+        # تسجيل الدخول
         authenticator.login(location='main')
         
-        # التأكد من الحالة من الـ session_state مباشرة
+        # إذا نجح الدخول، يتم الانتقال فوراً لصفحة الرادار
         if st.session_state.get("authentication_status"):
             st.rerun() 
         elif st.session_state.get("authentication_status") is False:
             st.error('Username/password is incorrect')
-
             
 # --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول) ---
 if st.session_state.get('authentication_status'):
