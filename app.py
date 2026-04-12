@@ -33,6 +33,7 @@ def get_all_users():
 
 credentials = get_all_users()
 
+# نظام الحماية المحدث
 authenticator = stauth.Authenticate(
     credentials,
     "radar_intelligence_cookie",
@@ -75,18 +76,17 @@ if not st.session_state.get('authentication_status'):
         elif st.session_state.get('authentication_status') is None:
             st.warning('Please enter your credentials')
 
-# --- 3. صفحة الرادار الرئيسية (بعد نجاح الدخول) ---
+# --- 3. صفحة الرادار الرئيسية ---
 if st.session_state.get('authentication_status'):
     authenticator.logout('Logout', 'sidebar')
     
-    # قسم الـ Virtualization & Cloud في الشريط الجانبي
     with st.sidebar:
         st.success(f"Engineer: {st.session_state.get('name', 'User')}")
         st.markdown("---")
-        st.subheader("🌐 Infrastructure Info")
+        st.subheader("🌐 Cloud Infrastructure")
         st.info("**Platform:** Streamlit Cloud (PaaS)")
         st.info("**Virtualization:** Docker Container")
-        st.info("**VDI:** FusionAccess Compatible")
+        st.info("**VDI Ready:** FusionAccess Compatible")
 
     st.title("📡 Radar Signal Cloud Intelligence")
     st.markdown("---")
@@ -118,6 +118,7 @@ if st.session_state.get('authentication_status'):
             signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / fs))
         
         with col_res:
+            # 1. Time Domain
             st.subheader("1. Time Domain (Waveform)")
             fig1, ax1 = plt.subplots(figsize=(10, 3))
             ax1.plot(t[:500], signal[:500], color='dodgerblue')
@@ -130,14 +131,15 @@ if st.session_state.get('authentication_status'):
                 res_label = ['AM', 'FM'][np.argmax(prediction)]
                 confidence = np.max(prediction) * 100
 
-                # 2. رسم السبيكتروجرام (تم تصحيح المسافات هنا)
+                # 2. Spectrogram (تصحيح المسافات بالكامل)
                 st.subheader("2. Spectrogram (Signal Fingerprint)")
                 fig2, ax2 = plt.subplots(figsize=(10, 4))
                 img = ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
                 fig2.colorbar(img, ax=ax2, label='Normalized Intensity')
                 st.pyplot(fig2)
 
+                # 3. Intelligence Results
                 st.subheader("3. Intelligence Results")
                 c1, c2 = st.columns(2)
                 c1.metric("Detected Modulation", res_label)
-                c2.metric("Confidence Score", f"{confidence:.2f}%")
+                c2.metric("Confidence Score", f"{confidence:.2f}%")  
