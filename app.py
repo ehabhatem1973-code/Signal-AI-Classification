@@ -8,24 +8,31 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 # كود لإخفاء أيقونة GitHub فقط والحفاظ على باقي القائمة
-hide_github_icon = """
+st.markdown("""
     <style>
-    /* إخفاء أيقونة الجيت هب من القائمة العلوية */
-    .stAppDeployButton {
+    /* إخفاء زر الجيت هب وأي أزرار نشر إضافية */
+    .stAppDeployButton, .viewerBadge_container__1QS1n, .styles_viewerBadge__1yB5_ {
         display: none !important;
     }
-    /* إخفاء رابط عرض الكود المصدر */
-    footer {visibility: hidden;}
+    /* إخفاء القطة تحديداً من شريط الأدوات */
+    #StyledgithubIcon {
+        display: none !important;
+    }
+    header {visibility: visible !important;}
     </style>
-"""
+""", unsafe_allow_html=True)
 st.markdown(hide_github_icon, unsafe_allow_html=True)
 
+# 2. إعداد الاتصال بالجوجل شيت (حط الجزء اللي بتسأل عليه هنا)
+# استبدل الرابط اللي تحت بالرابط الحقيقي بتاع ملفك
+url = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing" 
+conn = st.connection("gsheets", type=GSheetsConnection, url=url)
 
 # --- 1. إعداد الصفحة والربط السحابي ---
 st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
 
 # إنشاء اتصال مع Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
+#conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_all_users():
     try:
