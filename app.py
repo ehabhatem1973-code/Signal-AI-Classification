@@ -7,17 +7,18 @@ import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# كود لإخفاء زر الجيت هب والقائمة العلوية
-hide_github_style = """
+# كود لإخفاء أيقونة GitHub فقط والحفاظ على باقي القائمة
+hide_github_icon = """
     <style>
-    #MainMenu {visibility: hidden;}
+    /* إخفاء أيقونة الجيت هب من القائمة العلوية */
+    .stAppDeployButton {
+        display: none !important;
+    }
+    /* إخفاء رابط عرض الكود المصدر */
     footer {visibility: hidden;}
-    .stAppDeployButton {display:none;}
-    [data-testid="bundle_github_cursor_detector"] {display:none;}
-    header {visibility: hidden;}
     </style>
 """
-st.markdown(hide_github_style, unsafe_allow_html=True)
+st.markdown(hide_github_icon, unsafe_allow_html=True)
 
 
 # --- 1. إعداد الصفحة والربط السحابي ---
@@ -62,38 +63,36 @@ if not st.session_state.get('authentication_status'):
     
     with tab2:
         try:
-            # عملية التسجيل - المكتبة بتتعامل مع الـ credentials اللي مررناها فوق
+            # عملية التسجيل
             result = authenticator.register_user(location='main')
             
-           
-         
+            # إذا تمت عملية التسجيل بنجاح (result هيرجع True)
             if result:
-                # التأكد أن القائمة ليست فارغة قبل الوصول للاندكس
+                # التأكد من تحديث القائمة المحلية
                 usernames_list = list(credentials["usernames"].keys())
                 if usernames_list:
                     new_username = usernames_list[-1]
                     user_info = credentials["usernames"][new_username]
-                    # باقي كود الـ DataFrame والـ update زي ما هو...
 
-                # تجهيز البيانات للإرسال للجوجل شيت
-                new_entry = pd.DataFrame([{
-                    'Name': user_info.get('name', 'N/A'),
-                    'Last name': 'Engineer',
-                    'Email': user_info.get('email', 'N/A'),
-                    'Username': new_username,
-                    'Password': user_info.get('password', ''),
-                    'Password confirmation': user_info.get('password', ''),
-                    'Password hint': 'Radar Project',
-                    'Captcha': 'Verified'
-                }])
+                    # تجهيز البيانات للإرسال للسحابة
+                    new_entry = pd.DataFrame([{
+                        'Name': user_info.get('name', 'N/A'),
+                        'Last name': 'Engineer',
+                        'Email': user_info.get('email', 'N/A'),
+                        'Username': new_username,
+                        'Password': user_info.get('password', ''),
+                        'Password confirmation': user_info.get('password', ''),
+                        'Password hint': 'Radar Project',
+                        'Captcha': 'Verified'
+                    }])
 
-                # دمج البيانات ورفعها للسحابة
-                existing_df = conn.read(ttl=0)
-                updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
-                conn.update(data=updated_df)
-                
-                st.success('✅ Engineer Registered & Cloud Synced! Please go to Login tab.')
-                st.balloons()
+                    # رفع البيانات للجوجل شيت
+                    existing_df = conn.read(ttl=0)
+                    updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
+                    conn.update(data=updated_df)
+                    
+                    st.success('✅ Engineer Registered & Cloud Synced!')
+                    st.balloons()
         except Exception as e:
             st.error(f"Error during registration: {e}")
 
