@@ -48,13 +48,14 @@ if not st.session_state.get('authentication_status'):
     tab1, tab2 = st.tabs(["Login", "Register New Engineer"])
     
     with tab2:
-        # خانة التسجيل: لازم تملأ كل الخانات وتضغط Register
         try:
-            if authenticator.register_user(location='main'):
-                # الحصول على بيانات المستخدم الجديد من الجلسة
-                all_users = st.session_state['config']['credentials']['usernames']
-                new_username = list(all_users.keys())[-1]
-                user_info = all_users[new_username]
+            # عملية التسجيل - المكتبة بتتعامل مع الـ credentials اللي مررناها فوق
+            result = authenticator.register_user(location='main')
+            
+            if result:
+                # هنا التعديل: بدل ما ننادي 'config'، بنستخدم المتغير credentials اللي عرفناه فوق
+                new_username = list(credentials["usernames"].keys())[-1]
+                user_info = credentials["usernames"][new_username]
 
                 # تجهيز البيانات للإرسال للجوجل شيت
                 new_entry = pd.DataFrame([{
@@ -68,10 +69,11 @@ if not st.session_state.get('authentication_status'):
                     'Captcha': 'Verified'
                 }])
 
-                # دمج البيانات الجديدة ورفعها للسحابة فوراً
+                # دمج البيانات ورفعها للسحابة
                 existing_df = conn.read(ttl=0)
                 updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
                 conn.update(data=updated_df)
+                
                 st.success('✅ Engineer Registered & Cloud Synced! Please go to Login tab.')
                 st.balloons()
         except Exception as e:
@@ -148,8 +150,10 @@ if st.session_state.get('authentication_status'):
                 st.subheader("3. Results")
                 st.metric("Detected Modulation", res_label)
                 # 3. Intelligence Results
-                
+
                 st.subheader("4. Intelligence Results")
+                
                 c1, c2 = st.columns(2)
+                confidence = np.max(prediction) * 100
                 c1.metric("Detected Modulation", res_label)
                 c2.metric("Confidence Score", f"{confidence:.2f}%")
