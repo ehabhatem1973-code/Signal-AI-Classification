@@ -7,29 +7,29 @@ import streamlit_authenticator as stauth
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
-# 1. إعداد الصفحة (لازم أول سطر)
+# 1. إعداد الصفحة (لازم يكون أول أمر برمي بعد الـ imports)
 st.set_page_config(page_title="Radar Signal Cloud Intelligence", layout="wide")
 
-# 2. كود إخفاء أيقونة GitHub فقط مع الحفاظ على القائمة
+# 2. كود إخفاء أيقونة GitHub فقط مع الحفاظ على القائمة (تعديل القناص)
 st.markdown("""
     <style>
-    /* إخفاء زر الجيت هب وأي أزرار نشر */
-    .stAppDeployButton, #StyledgithubIcon {
+    /* إخفاء زر الجيت هب والقطة وأي أثر لها */
+    .stAppDeployButton, #StyledgithubIcon, [data-testid="bundle_github_cursor_detector"] {
         display: none !important;
     }
     footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# 3. إعداد الاتصال بالجوجل شيت (تأكد إن الرابط صحيح)
-url = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing"
-conn = st.connection("gsheets", type=GSheetsConnection, url=url)
+# 3. إعداد الاتصال بالجوجل شيت (الطريقة المتوافقة مع نسختك)
+url_sheet = "https://docs.google.com/spreadsheets/d/13kcl0WS0LE1rXWm4aanpby8wO5542JaR76038ofa1-E/edit?usp=sharing"
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 
 def get_all_users():
     try:
-        # قراءة البيانات مع ضمان تحديثها من السحابة
-        df = conn.read(ttl=0)
+        # قراءة البيانات مع تمرير الرابط داخل الـ read لتجنب الـ TypeError
+        df = conn.read(spreadsheet=url_sheet, ttl=0)
         creds = {"usernames": {}}
         if df is not None and not df.empty:
             df.columns = df.columns.str.strip()
@@ -65,7 +65,6 @@ if not st.session_state.get('authentication_status'):
             # عملية التسجيل
             result = authenticator.register_user(location='main')
             
-            # إذا تمت عملية التسجيل بنجاح (result هيرجع True)
             if result:
                 # التأكد من تحديث القائمة المحلية
                 usernames_list = list(credentials["usernames"].keys())
@@ -85,10 +84,10 @@ if not st.session_state.get('authentication_status'):
                         'Captcha': 'Verified'
                     }])
 
-                    # رفع البيانات للجوجل شيت
-                    existing_df = conn.read(ttl=0)
+                    # رفع البيانات للجوجل شيت مع تمرير الرابط
+                    existing_df = conn.read(spreadsheet=url_sheet, ttl=0)
                     updated_df = pd.concat([existing_df, new_entry], ignore_index=True)
-                    conn.update(data=updated_df)
+                    conn.update(spreadsheet=url_sheet, data=updated_df)
                     
                     st.success('✅ Engineer Registered & Cloud Synced!')
                     st.balloons()
@@ -96,7 +95,6 @@ if not st.session_state.get('authentication_status'):
             st.error(f"Error during registration: {e}")
 
     with tab1:
-        # تسجيل الدخول
         authenticator.login(location='main')
         if st.session_state.get('authentication_status') is False:
             st.error('Username/password is incorrect')
@@ -105,21 +103,18 @@ if not st.session_state.get('authentication_status'):
 
 # --- 3. صفحة الرادار (تظهر فقط بعد نجاح الدخول) ---
 if st.session_state.get('authentication_status'):
-    # إضافة الخروج في الشريط الجانبي
     authenticator.logout('Logout', 'sidebar')
     
     with st.sidebar:
         st.success(f"Welcome, Eng. {st.session_state.get('name', 'User')}")
         st.markdown("---")
         st.subheader("🌐 System Infrastructure")
-        st.info("**Environment:** Docker Container (Virtualization)")
-        st.info("**Access:** FusionAccess Compatible")
+        st.info("**Environment:** Docker Container")
         st.info("**Database:** Google Cloud Real-time")
 
     st.title("📡 Radar Signal Intelligence System")
     st.markdown("---")
 
-    # وظائف معالجة الإشارات
     def get_spec(signal):
         _, _, Sxx = spectrogram(signal, fs=5000, nperseg=256, noverlap=128)
         Sxx_log = 10 * np.log10(Sxx + 1e-10)
@@ -146,13 +141,11 @@ if st.session_state.get('authentication_status'):
             signal = np.sin(2 * np.pi * (100 * t + 20 * np.cumsum(np.sin(2 * np.pi * 5 * t)) / 5000))
         
         with col_res:
-            # رسم الموجة
             st.subheader("1. Time Domain")
             fig1, ax1 = plt.subplots(figsize=(10, 3))
             ax1.plot(t[:500], signal[:500], color='dodgerblue')
             st.pyplot(fig1)
 
-            # تحليل الذكاء الاصطناعي ورسم السبيكتروجرام
             with st.spinner('Analyzing...'):
                 spec = get_spec(signal)
                 prediction = model.predict(spec.reshape(1, 129, 38, 1))
@@ -163,13 +156,10 @@ if st.session_state.get('authentication_status'):
                 ax2.imshow(spec, aspect='auto', origin='lower', cmap='viridis')
                 st.pyplot(fig2)
 
-                st.subheader("3. Results")
-                st.metric("Detected Modulation", res_label)
-                # 3. Intelligence Results
-
-                st.subheader("4. Intelligence Results")
-                
+                st.subheader("3. Intelligence Results")
                 c1, c2 = st.columns(2)
                 confidence = np.max(prediction) * 100
                 c1.metric("Detected Modulation", res_label)
                 c2.metric("Confidence Score", f"{confidence:.2f}%")
+
+                
